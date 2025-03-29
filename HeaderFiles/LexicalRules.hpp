@@ -10,20 +10,20 @@
 using namespace std;
 
 enum class State {
-    InitialState,      // Start state
-    IdentifierState,   // ID and keyword recognition
-    NumberState,       // Integer or floating-point number
-    HexNumberState,    // Hexadecimal numbers (0x123ABC)
-    OctalNumberState,  // Octal numbers (0777)
-    RealNumberState,   // Floating point number
-    ExponentState,      
-    ExponentNumberState,
-    StringState,       // Strings
-    CharState,         // Character literals
-    EscapeSequenceState,
-    CommentState,      // Line comments
-    BlockCommentState, // Block comments
-    EndState           // Final state
+    InitialState,           // Start state
+    IdentifierState,        // ID and keyword recognition
+    NumberState,            // Integer or floating-point number
+    HexNumberState,         // Hexadecimal numbers (0x123ABC)
+    OctalNumberState,       // Octal numbers (0777)
+    RealNumberState,        // Floating point number
+    ExponentState,          // For numbers like 10e7
+    ExponentNumberState,    // Reading the numbers after 'e'
+    StringState,            // Strings
+    CharState,              // Character literals
+    EscapeSequenceState,    // When you find a special character
+    CommentState,           // Line comments
+    BlockCommentState,      // Block comments
+    EndState                // Final state
 };
 
 class LexicalAnalyzer {
