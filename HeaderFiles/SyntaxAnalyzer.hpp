@@ -126,12 +126,16 @@ public:
         }
         if (consume(TokenType::FOR)) {
             if (!consume(TokenType::LPAR)) tkerr("Expected ( after FOR.");
-            expr();
+            
+            exprAssign();  // Allow assignment expressions in FOR loop initialization
             if (!consume(TokenType::SEMICOLON)) tkerr("Expected ; inside FOR loop.");
-            expr();
+            
+            expr();  // Allow conditions in FOR loop
             if (!consume(TokenType::SEMICOLON)) tkerr("Expected ; inside FOR loop.");
-            expr();
+            
+            exprAssign();  // Allow assignment expressions in FOR loop update
             if (!consume(TokenType::RPAR)) tkerr("Expected ) after FOR loop.");
+            
             if (!stm()) tkerr("Expected statement after FOR.");
             return true;
         }
@@ -150,7 +154,7 @@ public:
             }
             return true;
         }
-        if (expr()) {
+        if (exprAssign()) {  // 🔥 Now handles standalone assignments like `x = 5;`
             if (!consume(TokenType::SEMICOLON)) {
                 tkerr("Expected ; after expression.");
                 advanceToNextValidToken();
@@ -158,7 +162,7 @@ public:
             return true;
         }
         return false;
-    }
+    }    
 
     void advanceToNextValidToken() {
         while (crtTk() && crtTk()->type != TokenType::SEMICOLON && crtTk()->type != TokenType::RACC) {
@@ -182,13 +186,15 @@ public:
 
     bool exprAssign() {
         if (exprUnary()) {
-            if (consume(TokenType::ASSIGN)) {
+            if (crtTk() && crtTk()->type == TokenType::ASSIGN) { // Check BEFORE consuming
+                consume(TokenType::ASSIGN);
                 if (!exprAssign()) tkerr("Invalid assignment expression.");
                 return true;
             }
+            return true;
         }
-        return exprOr();
-    }
+        return exprOr(); 
+    }     
 
     bool exprOr() {
         if (!exprAnd()) return false;
