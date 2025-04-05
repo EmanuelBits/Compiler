@@ -31,6 +31,8 @@ private:
     FileHandler& fileHandler;
     vector<Token> tokens;
     int line, column;
+    
+    bool inCharLiteral = false;
 
 public:
     LexicalAnalyzer(FileHandler& fileHandler) : fileHandler(fileHandler) {
@@ -93,6 +95,7 @@ public:
                         } else {
                             tokens.emplace_back(TokenType::DIV, "/", line, column);
                         }
+                        fileHandler.putBackChar(nextChar);
                     } else if (ch == '.') {
                         tokens.emplace_back(TokenType::DOT, ".", line, column);
                     } else if (ch == ',') tokens.emplace_back(TokenType::COMMA, ",", line, column);
@@ -163,13 +166,16 @@ public:
                     } else if (ch == '.') {
                         buffer += ch;
                         state = State::RealNumberState;
+                    } else if (ch == 'e' || ch == 'E') {
+                        buffer += ch;
+                        state = State::ExponentState;
                     } else {
                         tokens.emplace_back(TokenType::CT_INT, buffer, line, column);
                         buffer.clear();
                         fileHandler.putBackChar(ch);
                         state = State::InitialState;
                     }
-                    break;
+                    break;                
 
                 case State::RealNumberState:
                     if (isdigit(ch)) {
@@ -248,23 +254,28 @@ public:
                     break;
 
                 case State::StringState:
+                    inCharLiteral = false;
                     if (ch == '\\') {  
-                        state = State::EscapeSequenceState;  // Enter escape sequence handling
-                    } else if (ch == '\"') {  
+                        state = State::EscapeSequenceState;  // Go to escape processing
+                    } else if (ch == '"') {
+                        // End of string literal
                         tokens.emplace_back(TokenType::CT_STRING, buffer, line, column);
                         buffer.clear();
-                        state = State::InitialState;  // String ends
+                        state = State::InitialState;
                     } else {
                         buffer += ch;
                     }
                     break;
 
                 case State::CharState:
+                    inCharLiteral = true;
                     if (ch == '\\') {  
-                        state = State::EscapeSequenceState;
+                        state = State::EscapeSequenceState;  // Go to escape processing
                     } else if (ch == '\'') {
+                        // End of char literal
                         tokens.emplace_back(TokenType::CT_CHAR, buffer, line, column);
                         buffer.clear();
+                        inCharLiteral = false;
                         state = State::InitialState;
                     } else {
                         buffer += ch;
@@ -272,13 +283,23 @@ public:
                     break;
                 
                 case State::EscapeSequenceState:
-                    if (ch == 'a' || ch == 'b' || ch == 'f' || ch == 'n' || ch == 'r' || ch == 't' || 
-                        ch == 'v' || ch == '\\' || ch == '\'' || ch == '\"' || ch == '0') {
-                        buffer += ch;  // Store only the escaped character
-                        state = State::StringState;  // Go back to reading the rest of the string
+                    if (ch == 'a' || ch == 'b' || ch == 'f' || ch == 'n' || ch == 'r' || 
+                        ch == 't' || ch == 'v' || ch == '\\' || ch == '\'' || ch == '\"' || ch == '0') {
+                        buffer += ch;  // Append only the escaped character
+                        // Return to the appropriate literal state based on context:
+                        if (inCharLiteral) {
+                            state = State::CharState;
+                        } else {
+                            state = State::StringState;
+                        }
                     } else {
-                        ErrorHandler::printLexicalError("Invalid escape sequence in string", line, column);
-                        state = State::StringState;  // Return to StringState even after an error
+                        ErrorHandler::printLexicalError("Invalid escape sequence", line, column);
+                        // Recover by returning to the appropriate state:
+                        if (inCharLiteral) {
+                            state = State::CharState;
+                        } else {
+                            state = State::StringState;
+                        }
                     }
                     break;
 

@@ -18,12 +18,10 @@ private:
 public:
     SyntaxAnalyzer(vector<Token> tokenStream) : tokens(tokenStream), currentTokenIndex(0) {}
 
-    // Return pointer to the current token (or nullptr at end)
     Token* crtTk() {
         return (currentTokenIndex < tokens.size()) ? &tokens[currentTokenIndex] : nullptr;
     }
 
-    // Consume a token if it matches the expected type
     bool consume(TokenType type) {
         if (crtTk() && crtTk()->type == type) {
             consumedTk = crtTk();
@@ -33,7 +31,6 @@ public:
         return false;
     }
 
-    // Print a syntax error using our dedicated syntax error printer.
     void tkerr(const string& message) {
         if (crtTk()) {
             ErrorHandler::printSyntaxError(message, crtTk()->line, crtTk()->column);
@@ -42,69 +39,105 @@ public:
         }
     }
 
-    // Helper: Optional expression assignment (used in for-loop parts)
     bool optExprAssign() {
         if (!crtTk()) return true;
         TokenType t = crtTk()->type;
-        if (t == TokenType::SEMICOLON || t == TokenType::RPAR)
-            return true;
+        if (t == TokenType::SEMICOLON || t == TokenType::RPAR) return true;
         return exprAssign();
     }
 
-    // Helper: Optional expression (non-assignment)
     bool optExpr() {
         if (!crtTk()) return true;
         TokenType t = crtTk()->type;
-        if (t == TokenType::SEMICOLON || t == TokenType::RPAR)
-            return true;
+        if (t == TokenType::SEMICOLON || t == TokenType::RPAR) return true;
         return expr();
     }
 
-    // Starting rule: process tokens until end.
     bool unit() {
         while (currentTokenIndex < tokens.size()) {
-            // Try parsing a declaration (struct, function, var) or a statement.
             if (!(declStruct() || declFunc() || declVar() || stm())) {
                 tkerr("Unexpected token.");
-                currentTokenIndex++; // skip token to prevent infinite loop
+                currentTokenIndex++;  // Skip to avoid infinite loop
             }
         }
         return true;
     }
 
     // ----------------- Declarations -----------------
+
     bool declStruct() {
+        size_t save = currentTokenIndex;
         if (!consume(TokenType::STRUCT)) return false;
-        if (!consume(TokenType::ID)) { tkerr("Expected struct name after STRUCT."); }
-        if (!consume(TokenType::LACC)) { tkerr("Expected { after struct name."); }
+        if (!consume(TokenType::ID)) { 
+            tkerr("Expected struct name after STRUCT."); 
+            currentTokenIndex = save; 
+            return false; 
+        }
+        // Check if this is a struct definition:
+        if (!crtTk() || crtTk()->type != TokenType::LACC) {
+            // Not a definition; revert consumption so that "struct Pt" can be used as a type.
+            currentTokenIndex = save;
+            return false;
+        }
+        // Proceed with struct definition:
+        if (!consume(TokenType::LACC)) { 
+            tkerr("Expected { after struct name."); 
+            currentTokenIndex = save; 
+            return false; 
+        }
         while (declVar());  // Zero or more variable declarations
-        if (!consume(TokenType::RACC)) { tkerr("Expected } at the end of struct."); }
-        if (!consume(TokenType::SEMICOLON)) { tkerr("Expected ; after struct declaration."); }
+        if (!consume(TokenType::RACC)) { 
+            tkerr("Expected } at the end of struct."); 
+            currentTokenIndex = save; 
+            return false; 
+        }
+        if (!consume(TokenType::SEMICOLON)) { 
+            tkerr("Expected ; after struct declaration."); 
+            currentTokenIndex = save; 
+            return false; 
+        }
         return true;
-    }
+    }    
 
     bool declVar() {
         if (!typeBase()) return false;
-        if (!consume(TokenType::ID)) { tkerr("Expected variable name after type."); }
+        if (!consume(TokenType::ID)) tkerr("Expected variable name after type.");
         arrayDecl();
         while (consume(TokenType::COMMA)) {
-            if (!consume(TokenType::ID)) { tkerr("Expected variable name after comma."); }
+            if (!consume(TokenType::ID)) tkerr("Expected variable name after comma.");
             arrayDecl();
         }
-        if (!consume(TokenType::SEMICOLON)) { tkerr("Expected ; at end of variable declaration."); }
+        if (!consume(TokenType::SEMICOLON)) tkerr("Expected ; at end of variable declaration.");
+        return true;
+    }
+
+    bool structType() {
+        size_t save = currentTokenIndex;
+        if (!consume(TokenType::STRUCT))
+            return false;
+        if (!consume(TokenType::ID)) {
+            currentTokenIndex = save;
+            return false;
+        }
+        // If the next token is LACC, then this is a definition, not a type usage.
+        if (crtTk() && crtTk()->type == TokenType::LACC) {
+            currentTokenIndex = save;
+            return false;
+        }
         return true;
     }
 
     bool typeBase() {
-        return consume(TokenType::INT) || consume(TokenType::DOUBLE) ||
+        return consume(TokenType::INT) ||
+               consume(TokenType::DOUBLE) ||
                consume(TokenType::CHAR) ||
-               (consume(TokenType::STRUCT) && consume(TokenType::ID));
+               structType();
     }
 
     bool arrayDecl() {
         if (!consume(TokenType::LBRACKET)) return false;
-        expr();  // Optional expression inside array declaration
-        if (!consume(TokenType::RBRACKET)) { tkerr("Expected ] after array declaration."); }
+        expr();  // Optional size expression
+        if (!consume(TokenType::RBRACKET)) tkerr("Expected ] after array declaration.");
         return true;
     }
 
@@ -115,112 +148,129 @@ public:
     }
 
     bool declFunc() {
-        if (!(typeBase() || consume(TokenType::VOID))) return false;
-        consume(TokenType::MUL); // Optional pointer (for vector return types)
-        if (!consume(TokenType::ID)) { tkerr("Expected function name."); }
-        if (!consume(TokenType::LPAR)) { tkerr("Expected ( after function name."); }
+        size_t save = currentTokenIndex;
+        if (!(typeBase() || consume(TokenType::VOID)))
+            return false;
+        consume(TokenType::MUL); // optional pointer type
+        if (!consume(TokenType::ID)) {
+            tkerr("Expected function name.");
+            return false;
+        }
+        // Lookahead: if the next token is not LPAR, it's not a function declaration.
+        if (!crtTk() || crtTk()->type != TokenType::LPAR) {
+            currentTokenIndex = save;
+            return false;
+        }
+        if (!consume(TokenType::LPAR)) {
+            tkerr("Expected ( after function name.");
+            return false;
+        }
         if (funcArg()) {
             while (consume(TokenType::COMMA)) {
-                if (!funcArg()) { tkerr("Expected function argument after comma."); }
+                if (!funcArg()) {
+                    tkerr("Expected function argument after comma.");
+                    return false;
+                }
             }
         }
-        if (!consume(TokenType::RPAR)) { tkerr("Expected ) after function parameters."); }
-        if (!stmCompound()) { tkerr("Expected function body after declaration."); }
+        if (!consume(TokenType::RPAR)) {
+            tkerr("Expected ) after function parameters.");
+            return false;
+        }
+        if (!stmCompound()) {
+            tkerr("Expected function body after declaration.");
+            return false;
+        }
         return true;
-    }
+    }    
 
     bool funcArg() {
         if (!typeBase()) return false;
-        if (!consume(TokenType::ID)) { tkerr("Expected argument name."); }
+        if (!consume(TokenType::ID)) tkerr("Expected argument name.");
         arrayDecl();
         return true;
     }
 
     // ----------------- Statements -----------------
+
     bool stm() {
-        // Compound statement
         if (stmCompound()) return true;
 
-        // if-statement
         if (consume(TokenType::IF)) {
-            if (!consume(TokenType::LPAR)) { tkerr("Expected ( after IF."); return false; }
-            if (!expr()) { tkerr("Expected expression in IF condition."); return false; }
-            if (!consume(TokenType::RPAR)) { tkerr("Expected ) after IF condition."); return false; }
-            if (!stm()) { tkerr("Expected statement after IF."); return false; }
+            if (!consume(TokenType::LPAR)) tkerr("Expected ( after IF.");
+            if (!expr()) tkerr("Expected expression in IF condition.");
+            if (!consume(TokenType::RPAR)) tkerr("Expected ) after IF condition.");
+            if (!stm()) tkerr("Expected statement after IF.");
             if (consume(TokenType::ELSE)) {
-                if (!stm()) { tkerr("Expected statement after ELSE."); return false; }
+                if (!stm()) tkerr("Expected statement after ELSE.");
             }
             return true;
         }
 
-        // while-statement
         if (consume(TokenType::WHILE)) {
-            if (!consume(TokenType::LPAR)) { tkerr("Expected ( after WHILE."); return false; }
-            if (!expr()) { tkerr("Expected expression in WHILE condition."); return false; }
-            if (!consume(TokenType::RPAR)) { tkerr("Expected ) after WHILE condition."); return false; }
-            if (!stm()) { tkerr("Expected statement after WHILE."); return false; }
+            if (!consume(TokenType::LPAR)) tkerr("Expected ( after WHILE.");
+            if (!expr()) tkerr("Expected expression in WHILE condition.");
+            if (!consume(TokenType::RPAR)) tkerr("Expected ) after WHILE condition.");
+            if (!stm()) tkerr("Expected statement after WHILE.");
             return true;
         }
 
-        // for-statement (rewritten as separate helper)
         if (ruleFor()) return true;
 
-        // break statement
         if (consume(TokenType::BREAK)) {
-            if (!consume(TokenType::SEMICOLON)) { tkerr("Expected ; after BREAK."); return false; }
+            if (!consume(TokenType::SEMICOLON)) tkerr("Expected ; after BREAK.");
             return true;
         }
 
-        // return statement
         if (consume(TokenType::RETURN)) {
-            // Optional expression
             if (crtTk() && crtTk()->type != TokenType::SEMICOLON) {
-                if (!expr()) { tkerr("Invalid return expression."); return false; }
+                if (!expr()) tkerr("Invalid return expression.");
             }
-            if (!consume(TokenType::SEMICOLON)) { tkerr("Expected ; after RETURN."); return false; }
+            if (!consume(TokenType::SEMICOLON)) tkerr("Expected ; after RETURN.");
             return true;
         }
 
-        // Expression statement
         if (exprAssign()) {
-            if (!consume(TokenType::SEMICOLON)) { tkerr("Expected ; after expression."); return false; }
+            if (!consume(TokenType::SEMICOLON)) tkerr("Expected ; after expression.");
             return true;
         }
 
         return false;
     }
 
-    // Compound statement: { stmt* }
     bool stmCompound() {
         if (!consume(TokenType::LACC)) return false;
-        while (declVar() || stm()) { }  // Process declarations and statements inside block
-        if (!consume(TokenType::RACC)) { tkerr("Expected } at end of compound statement."); return false; }
+        while (declVar() || stm());
+        if (!consume(TokenType::RACC)) {
+            tkerr("Expected } at end of compound statement.");
+            return false;
+        }
         return true;
     }
 
-    // ----------------- Expression Parsing -----------------
+    // ----------------- Expressions -----------------
+
     bool expr() {
         return exprAssign();
     }
 
     bool exprAssign() {
-        // Try to parse an assignment expression; if left-hand side is valid, check for '='.
-        size_t saveIndex = currentTokenIndex;
-        if (exprUnary()) {
-            if (consume(TokenType::ASSIGN)) {
-                if (!exprAssign()) { tkerr("Invalid assignment expression."); return false; }
-                return true;
+        size_t save = currentTokenIndex;
+        if (exprUnary() && consume(TokenType::ASSIGN)) {
+            if (!exprAssign()) {
+                tkerr("Invalid assignment expression.");
+                return false;
             }
-            // If no '=' found, restore state and try exprOr
-            currentTokenIndex = saveIndex;
+            return true;
         }
+        currentTokenIndex = save;
         return exprOr();
     }
 
     bool exprOr() {
         if (!exprAnd()) return false;
         while (consume(TokenType::OR)) {
-            if (!exprAnd()) { tkerr("Invalid OR expression."); return false; }
+            if (!exprAnd()) tkerr("Invalid OR expression.");
         }
         return true;
     }
@@ -228,7 +278,7 @@ public:
     bool exprAnd() {
         if (!exprEq()) return false;
         while (consume(TokenType::AND)) {
-            if (!exprEq()) { tkerr("Invalid AND expression."); return false; }
+            if (!exprEq()) tkerr("Invalid AND expression.");
         }
         return true;
     }
@@ -236,7 +286,7 @@ public:
     bool exprEq() {
         if (!exprRel()) return false;
         while (consume(TokenType::EQUAL) || consume(TokenType::NOTEQ)) {
-            if (!exprRel()) { tkerr("Invalid equality expression."); return false; }
+            if (!exprRel()) tkerr("Invalid equality expression.");
         }
         return true;
     }
@@ -245,7 +295,7 @@ public:
         if (!exprAdd()) return false;
         while (consume(TokenType::LESS) || consume(TokenType::LESSEQ) ||
                consume(TokenType::GREATER) || consume(TokenType::GREATEREQ)) {
-            if (!exprAdd()) { tkerr("Invalid relational expression."); return false; }
+            if (!exprAdd()) tkerr("Invalid relational expression.");
         }
         return true;
     }
@@ -253,7 +303,7 @@ public:
     bool exprAdd() {
         if (!exprMul()) return false;
         while (consume(TokenType::ADD) || consume(TokenType::SUB)) {
-            if (!exprMul()) { tkerr("Invalid addition/subtraction expression."); return false; }
+            if (!exprMul()) tkerr("Invalid addition/subtraction expression.");
         }
         return true;
     }
@@ -261,21 +311,19 @@ public:
     bool exprMul() {
         if (!exprCast()) return false;
         while (consume(TokenType::MUL) || consume(TokenType::DIV)) {
-            if (!exprCast()) { tkerr("Invalid multiplication/division expression."); return false; }
+            if (!exprCast()) tkerr("Invalid multiplication/division expression.");
         }
         return true;
     }
 
     bool exprCast() {
         if (consume(TokenType::LPAR)) {
-            size_t saveIndex = currentTokenIndex;
-            if (typeName()) {  // This is a cast
-                if (!consume(TokenType::RPAR)) { tkerr("Expected ) after type cast."); return false; }
+            size_t save = currentTokenIndex;
+            if (typeName()) {
+                if (!consume(TokenType::RPAR)) tkerr("Expected ) after type cast.");
                 return exprCast();
             }
-            // Not a type cast; revert consumption of '('
-            currentTokenIndex = saveIndex - 1;  // "Put back" the LPAR
-            return exprUnary();
+            currentTokenIndex = save - 1;
         }
         return exprUnary();
     }
@@ -290,28 +338,27 @@ public:
         if (!exprPrimary()) return false;
         while (true) {
             if (consume(TokenType::LBRACKET)) {
-                if (!expr()) { tkerr("Invalid expression in array access."); return false; }
-                if (!consume(TokenType::RBRACKET)) { tkerr("Expected ] after array access."); return false; }
+                if (!expr()) tkerr("Invalid expression in array access.");
+                if (!consume(TokenType::RBRACKET)) tkerr("Expected ] after array access.");
+            } else if (consume(TokenType::DOT)) {
+                if (!consume(TokenType::ID)) tkerr("Expected identifier after .");
+            } else {
+                break;
             }
-            else if (consume(TokenType::DOT)) {
-                if (!consume(TokenType::ID)) { tkerr("Expected identifier after ."); return false; }
-            }
-            else break;
         }
         return true;
     }
 
     bool exprPrimary() {
         if (consume(TokenType::ID)) {
-            // Function call
             if (consume(TokenType::LPAR)) {
                 if (crtTk() && crtTk()->type != TokenType::RPAR) {
-                    if (!expr()) { tkerr("Invalid expression in function call."); return false; }
+                    if (!expr()) tkerr("Invalid expression in function call.");
                     while (consume(TokenType::COMMA)) {
-                        if (!expr()) { tkerr("Invalid expression in function call."); return false; }
+                        if (!expr()) tkerr("Invalid expression in function call.");
                     }
                 }
-                if (!consume(TokenType::RPAR)) { tkerr("Expected ) after function call."); return false; }
+                if (!consume(TokenType::RPAR)) tkerr("Expected ) after function call.");
             }
             return true;
         }
@@ -319,38 +366,24 @@ public:
             consume(TokenType::CT_CHAR) || consume(TokenType::CT_STRING))
             return true;
         if (consume(TokenType::LPAR)) {
-            if (!expr()) { tkerr("Invalid expression inside parentheses."); return false; }
-            if (!consume(TokenType::RPAR)) { tkerr("Expected ) after expression."); return false; }
+            if (!expr()) tkerr("Invalid expression inside parentheses.");
+            if (!consume(TokenType::RPAR)) tkerr("Expected ) after expression.");
             return true;
         }
         return false;
     }
 
-    // ----------------- FOR loop parsing as a separate helper -----------------
     bool ruleFor() {
         if (!consume(TokenType::FOR)) return false;
-        if (!consume(TokenType::LPAR)) { tkerr("Expected ( after FOR."); return false; }
-        
-        // Optional initialization
-        if (!optExprAssign()) { tkerr("Invalid initialization in FOR loop."); return false; }
-        if (!consume(TokenType::SEMICOLON)) { tkerr("Expected ; after initialization in FOR loop."); return false; }
-        
-        // Optional condition
-        if (!optExpr()) { tkerr("Invalid condition in FOR loop."); return false; }
-        if (!consume(TokenType::SEMICOLON)) { tkerr("Expected ; after condition in FOR loop."); return false; }
-        
-        // Optional increment
-        if (!optExprAssign()) { tkerr("Invalid increment in FOR loop."); return false; }
-        if (!consume(TokenType::RPAR)) { tkerr("Expected ) after FOR loop."); return false; }
-        
-        if (!stm()) { tkerr("Expected statement after FOR loop."); return false; }
+        if (!consume(TokenType::LPAR)) tkerr("Expected ( after FOR.");
+        if (!optExprAssign()) tkerr("Invalid initialization in FOR loop.");
+        if (!consume(TokenType::SEMICOLON)) tkerr("Expected ; after initialization.");
+        if (!optExpr()) tkerr("Invalid condition in FOR loop.");
+        if (!consume(TokenType::SEMICOLON)) tkerr("Expected ; after condition.");
+        if (!optExprAssign()) tkerr("Invalid increment in FOR loop.");
+        if (!consume(TokenType::RPAR)) tkerr("Expected ) after FOR loop.");
+        if (!stm()) tkerr("Expected statement after FOR.");
         return true;
-    }
-
-    // Override stm() to include FOR loop rule.
-    bool stmWrapper() {
-        if (ruleFor()) return true;
-        return stm(); // Fallback to the original stm() rules.
     }
 };
 
