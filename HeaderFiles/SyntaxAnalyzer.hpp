@@ -103,9 +103,15 @@ public:
         if (!typeBase()) return false;
         if (!consume(TokenType::ID)) tkerr("Expected variable name after type.");
         arrayDecl();
+        if (consume(TokenType::ASSIGN)) {
+            if (!exprAssign()) tkerr("Invalid initializer in declaration.");
+        }
         while (consume(TokenType::COMMA)) {
             if (!consume(TokenType::ID)) tkerr("Expected variable name after comma.");
             arrayDecl();
+            if (consume(TokenType::ASSIGN)) {
+                if (!exprAssign()) tkerr("Invalid initializer in declaration.");
+            }
         }
         if (!consume(TokenType::SEMICOLON)) tkerr("Expected ; at end of variable declaration.");
         return true;
