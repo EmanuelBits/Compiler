@@ -68,7 +68,8 @@ public:
             } else {
                 cerr << RED << "Syntax Analysis FAILED!" << reset << endl;
             }
-
+            
+            // AutomaticMode: Test all files once or test them one by one
             if (!automaticMode) {
                 cout << CYAN << "Press Enter to continue, or type 'exit' to stop..." << reset << endl;
                 string input;

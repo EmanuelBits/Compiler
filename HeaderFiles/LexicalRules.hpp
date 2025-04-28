@@ -163,34 +163,52 @@ public:
                 case State::NumberState:
                     if (isdigit(ch)) {
                         buffer += ch;
-                    } else if (ch == '.') {
+                    }
+                    else if (ch == '.') {
                         buffer += ch;
                         state = State::RealNumberState;
-                    } else if (ch == 'e' || ch == 'E') {
+                    }
+                    else if (ch == 'e' || ch == 'E') {
                         buffer += ch;
                         state = State::ExponentState;
-                    } else {
+                    }
+                    else if (isalpha(ch) || ch == '_') {
+                        // invalid: identifier may not start with digit
+                        buffer += ch;
+                        ErrorHandler::printLexicalError("Invalid identifier starting with digit: " + buffer, line, column);
+                        buffer.clear();
+                        state = State::InitialState;
+                    }
+                    else {
                         tokens.emplace_back(TokenType::CT_INT, buffer, line, column);
                         buffer.clear();
                         fileHandler.putBackChar(ch);
                         state = State::InitialState;
                     }
-                    break;                
+                    break;
 
                 case State::RealNumberState:
                     if (isdigit(ch)) {
-                        buffer += ch;  // Continue reading decimal digits
-                    } else if (ch == 'e' || ch == 'E') {
-                        buffer += ch;  // Start exponent notation
+                        buffer += ch;
+                    }
+                    else if (ch == 'e' || ch == 'E') {
+                        buffer += ch;
                         state = State::ExponentState;
-                    } else {
+                    }
+                    else if (isalpha(ch) && ch!='e' && ch!='E') {
+                        buffer += ch;
+                        ErrorHandler::printLexicalError("Invalid character in real constant: " + buffer, line, column);
+                        buffer.clear();
+                        state = State::InitialState;
+                    }
+                    else {
                         fileHandler.putBackChar(ch);
                         tokens.emplace_back(TokenType::CT_REAL, buffer, line, column);
                         buffer.clear();
                         state = State::InitialState;
                     }
                     break;
-
+                
                 case State::ExponentState:
                     if (ch == '+' || ch == '-') {  
                         buffer += ch;  // Handle optional sign
@@ -198,7 +216,7 @@ public:
                         if (isdigit(nextChar)) {  
                             buffer += nextChar;
                             state = State::ExponentNumberState;
-                        } else {  
+                        } else {
                             ErrorHandler::printLexicalError("Invalid exponent notation: missing digits after sign", line, column);
                             fileHandler.putBackChar(nextChar);  // Put back the invalid character
                             tokens.emplace_back(TokenType::CT_REAL, buffer, line, column);

@@ -1,6 +1,0 @@
-We do the struct just outside the functions?
-
-We do not have Tokens for ENDLINE, TAB, etc. So how we do if we have an ENDLINE or TAB inside a declared string?
-We have this: "Test: \"Escaped quotes\", new line\n"
-String tokn: Test: "Escaped quotes", new linen
-                                             ^
