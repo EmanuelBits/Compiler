@@ -6,6 +6,7 @@
 #include <vector>
 #include "LexicalRules.hpp"
 #include "SyntaxAnalyzer.hpp"
+#include "SemanticContext.hpp"
 
 #define GREEN   "\e[0;32m"
 #define RED     "\e[0;31m"
@@ -22,7 +23,6 @@ public:
     void RunTests(bool automaticMode) {
         vector<string> testFiles;
 
-        // Collect all test files from the directory
         for (const auto& entry : fs::directory_iterator(testDirectory)) {
             if (entry.path().extension() == ".c") {
                 testFiles.push_back(entry.path().string());
@@ -41,7 +41,7 @@ public:
 
             FileHandler fileHandler(file);
             if (!fileHandler.ifOpen()) {
-                continue;  // Skip this test if the file cannot be opened
+                continue;
             }
 
             LexicalAnalyzer lexer(fileHandler);
@@ -55,23 +55,31 @@ public:
                     cout << token.toString() << endl;
                 }
             } else {
-                cerr << RED << "Lexical Analysis FAILED: No valid tokens found!" << reset << endl;
-                continue;  // Skip syntax analysis if lexical fails
+                cerr << RED << "Lexical Analysis FAILED!" << reset << endl;
+                continue;
             }
 
-            // Run Syntax Analysis
-            SyntaxAnalyzer parser(tokens);
+            // Create a fresh semantic context
+            SemanticContext semCtx;
+
+            SyntaxAnalyzer parser(tokens, semCtx);
             bool syntaxSuccess = parser.unit();
 
             if (syntaxSuccess) {
                 cout << GREEN << "Syntax Analysis PASSED!" << reset << endl;
             } else {
                 cerr << RED << "Syntax Analysis FAILED!" << reset << endl;
+                continue;
             }
-            
-            // AutomaticMode: Test all files once or test them one by one
+
+            // Optionally: show collected symbols
+            cout << CYAN << "Collected Symbols:" << reset << endl;
+            for (auto* sym : semCtx.symbols.getAll()) {
+                cout << "  - " << sym->name << " [CLS=" << sym->cls << ", MEM=" << sym->mem << ", DEPTH=" << sym->depth << "]" << endl;
+            }
+
             if (!automaticMode) {
-                cout << CYAN << "Press Enter to continue, or type 'exit' to stop..." << reset << endl;
+                cout << CYAN << "\nPress Enter to continue, or type 'exit' to stop..." << reset << endl;
                 string input;
                 getline(cin, input);
                 if (input == "exit") break;

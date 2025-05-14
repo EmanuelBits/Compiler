@@ -40,6 +40,14 @@ public:
     static void printSyntaxError(const string& message, int line, int column) {
         cerr << RED << "Syntax Error at line " << line << ", column " << column << ": " << message << reset << endl;
     }
+
+    static void printSemanticError(const string& message, int line, int column) {
+        cerr << MAGENTA << "Semantic Error at line " << line << ", column " << column << ": " << message << reset << endl;
+    }
+
+    static void printSemanticErrorDefinition(const string& message, const string& symbolName) {
+        cerr << MAGENTA << "Semantic Error (Definition): " << message << " -> '" << symbolName << "'" << reset << endl;
+    }
 };
 
 #endif
