@@ -1,5 +1,5 @@
-#ifndef LEXICALRULES_HPP
-#define LEXICALRULES_HPP
+#ifndef LEXICALANALYZER_HPP
+#define LEXICALANALYZER_HPP
 
 #include <iostream>
 #include <vector>
@@ -112,7 +112,10 @@ public:
                     else if (ch == '!') {  // Check for !=
                         char nextChar = fileHandler.getNextChar();
                         if (nextChar == '=') tokens.emplace_back(TokenType::NOTEQ, "!=", line, column);
-                        else tokens.emplace_back(TokenType::NOT, "!", line, column);
+                        else {
+                            fileHandler.putBackChar(nextChar);
+                            tokens.emplace_back(TokenType::NOT, "!", line, column);
+                        }
                     } else if (ch == '=') {  // Check for ==
                         char nextChar = fileHandler.getNextChar();
                         if (nextChar == '=') tokens.emplace_back(TokenType::EQUAL, "==", line, column);
@@ -130,7 +133,10 @@ public:
                     } else if (ch == '>') {  // Check for >=
                         char nextChar = fileHandler.getNextChar();
                         if (nextChar == '=') tokens.emplace_back(TokenType::GREATEREQ, ">=", line, column);
-                        else tokens.emplace_back(TokenType::GREATER, ">", line, column);
+                        else {
+                            fileHandler.putBackChar(nextChar);  // Put back character if not needed
+                            tokens.emplace_back(TokenType::GREATER, ">", line, column);
+                        }
                     } else if (ch == '&') {
                         char nextChar = fileHandler.getNextChar();
                         if (nextChar == '&') tokens.emplace_back(TokenType::AND, "&&", line, column);

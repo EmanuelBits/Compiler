@@ -4,7 +4,7 @@
 #include <iostream>
 #include <filesystem>
 #include <vector>
-#include "LexicalRules.hpp"
+#include "LexicalAnalyzer.hpp"
 #include "SyntaxAnalyzer.hpp"
 #include "SemanticContext.hpp"
 
@@ -72,7 +72,7 @@ public:
                 continue;
             }
 
-            // Optionally: show collected symbols
+            // Show collected symbols
             cout << CYAN << "Collected Symbols:" << reset << endl;
             for (auto* sym : semCtx.symbols.getAll()) {
                 cout << "  - " << sym->name << " [CLS=" << sym->cls << ", MEM=" << sym->mem << ", DEPTH=" << sym->depth << "]" << endl;

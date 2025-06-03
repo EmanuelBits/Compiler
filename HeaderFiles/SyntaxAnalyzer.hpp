@@ -5,7 +5,7 @@
 #include <vector>
 #include "Token.hpp"
 #include "ErrorHandler.hpp"
-#include "LexicalRules.hpp"
+#include "LexicalAnalyzer.hpp"
 #include "SemanticContext.hpp"
 
 using namespace std;
