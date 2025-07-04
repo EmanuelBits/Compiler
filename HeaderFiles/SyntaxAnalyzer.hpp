@@ -66,7 +66,7 @@ public:
         return true;
     }
 
-    // ------------Centralized methods--------------
+    // ------------Other methods--------------
     bool parseOptionalInitializer() {
         if (consume(TokenType::ASSIGN)) {
             if (!exprAssign()) {
@@ -621,11 +621,6 @@ public:
                     tkerr("Expected ) after type cast.");
                     return false;
                 }
-
-                // --- SEMANTIC ---
-                // You might later want to record the cast type here if needed for evaluation/codegen
-                // Example: save castType in an AST node or current expression context
-                // ----------------
 
                 return exprCast();  // Continue parsing casted expression
             }

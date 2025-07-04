@@ -8,11 +8,6 @@
 #include "SyntaxAnalyzer.hpp"
 #include "SemanticContext.hpp"
 
-#define GREEN   "\e[0;32m"
-#define RED     "\e[0;31m"
-#define CYAN    "\e[0;36m"
-#define reset   "\e[0m"
-
 namespace fs = std::filesystem;
 
 class TestDriver {
@@ -30,14 +25,14 @@ public:
         }
 
         if (testFiles.empty()) {
-            cerr << RED << "No test files found in " << testDirectory << reset << endl;
+            cerr << RED << "No test files found in " << testDirectory << RESET << endl;
             return;
         }
 
-        cout << CYAN << "Starting Tests...\n" << reset;
+        cout << CYAN << "Starting Tests...\n" << RESET;
 
         for (const auto& file : testFiles) {
-            cout << CYAN << "Testing: " << file << reset << endl;
+            cout << CYAN << "Testing: " << file << RESET << endl;
 
             FileHandler fileHandler(file);
             if (!fileHandler.ifOpen()) {
@@ -50,12 +45,12 @@ public:
             bool lexicalSuccess = !tokens.empty();
 
             if (lexicalSuccess) {
-                cout << GREEN << "Lexical Analysis PASSED!" << reset << endl;
+                cout << GREEN << "Lexical Analysis PASSED!" << RESET << endl;
                 for (const auto& token : tokens) {
                     cout << token.toString() << endl;
                 }
             } else {
-                cerr << RED << "Lexical Analysis FAILED!" << reset << endl;
+                cerr << RED << "Lexical Analysis FAILED!" << RESET << endl;
                 continue;
             }
 
@@ -66,27 +61,27 @@ public:
             bool syntaxSuccess = parser.unit();
 
             if (syntaxSuccess) {
-                cout << GREEN << "Syntax Analysis PASSED!" << reset << endl;
+                cout << GREEN << "Syntax Analysis PASSED!" << RESET << endl;
             } else {
-                cerr << RED << "Syntax Analysis FAILED!" << reset << endl;
+                cerr << RED << "Syntax Analysis FAILED!" << RESET << endl;
                 continue;
             }
 
             // Show collected symbols
-            cout << CYAN << "Collected Symbols:" << reset << endl;
+            cout << CYAN << "Collected Symbols:" << RESET << endl;
             for (auto* sym : semCtx.symbols.getAll()) {
                 cout << "  - " << sym->name << " [CLS=" << sym->cls << ", MEM=" << sym->mem << ", DEPTH=" << sym->depth << "]" << endl;
             }
 
             if (!automaticMode) {
-                cout << CYAN << "\nPress Enter to continue, or type 'exit' to stop..." << reset << endl;
+                cout << CYAN << "\nPress Enter to continue, or type 'exit' to stop..." << RESET << endl;
                 string input;
                 getline(cin, input);
                 if (input == "exit") break;
             }
         }
 
-        cout << CYAN << "Testing Complete." << reset << endl;
+        cout << CYAN << "Testing Complete." << RESET << endl;
     }
 };
 

@@ -4,16 +4,16 @@
 #include <iostream>
 #include <string>
 
-//Regular text + reset
-#define BLACK   "\e[0;30m"
-#define RED     "\e[0;31m"
-#define GREEN   "\e[0;32m"
-#define YELLOW  "\e[0;33m"
-#define BLUE    "\e[0;34m"
-#define MAGENTA "\e[0;35m"
-#define CYAN    "\e[0;36m"
-#define WHITE   "\e[0;37m"
-#define reset   "\e[0m"
+//Regular text + RESET
+#define BLACK   "\033[0;30m"
+#define RED     "\033[0;31m"
+#define GREEN   "\033[0;32m"
+#define YELLOW  "\033[0;33m"
+#define BLUE    "\033[0;34m"
+#define MAGENTA "\033[0;35m"
+#define CYAN    "\033[0;36m"
+#define WHITE   "\033[0;37m"
+#define RESET   "\033[0m"
 
 using namespace std;
 
@@ -24,29 +24,29 @@ public:
 
     // FileHandler Errors
     static void printErrorOpeningTheFile(string file) {
-        cerr << RED << "Error at opening the file: " << file << reset << endl;
+        cerr << RED << "Error at opening the file: " << file << RESET << endl;
     }
 
     static void printErrorClosingTheFile(string file) {
-        cerr << RED << "Error at closing the file: " << file << " File is NOT opened." << reset << endl;
+        cerr << RED << "Error at closing the file: " << file << " File is NOT opened." << RESET << endl;
     }
 
 
     // Analyzers Errors
     static void printLexicalError(const string& message, int line, int column) {
-        cerr << YELLOW << "Lexical Error at line " << line << ", column " << column << ": " << message << reset << endl;
+        cerr << YELLOW << "Lexical Error at line " << line << ", column " << column << ": " << message << RESET << endl;
     }
 
     static void printSyntaxError(const string& message, int line, int column) {
-        cerr << RED << "Syntax Error at line " << line << ", column " << column << ": " << message << reset << endl;
+        cerr << RED << "Syntax Error at line " << line << ", column " << column << ": " << message << RESET << endl;
     }
 
     static void printSemanticError(const string& message, int line, int column) {
-        cerr << MAGENTA << "Semantic Error at line " << line << ", column " << column << ": " << message << reset << endl;
+        cerr << MAGENTA << "Semantic Error at line " << line << ", column " << column << ": " << message << RESET << endl;
     }
 
     static void printSemanticErrorDefinition(const string& message, const string& symbolName) {
-        cerr << MAGENTA << "Semantic Error (Definition): " << message << " -> '" << symbolName << "'" << reset << endl;
+        cerr << MAGENTA << "Semantic Error (Definition): " << message << " -> '" << symbolName << "'" << RESET << endl;
     }
 };
 
